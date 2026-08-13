@@ -1,0 +1,104 @@
+name: GitOps Pipeline with ArgoCD
+
+on: 
+    push:
+        branches: 
+            - main
+        paths-ignore:
+            - 'manifest/**' # ignore changes to manifest files to prevent loop
+env: 
+    PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+    ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
+    ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+    GIT_USERNAME: ${{ secrets.GIT_USERNAME }}
+    GIT_EMAIL: ${{ secrets.GIT_EMAIL }}
+    
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps: 
+            - name: Checkout code
+              uses: actions/checkout@v3
+              with:
+                token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+                fetch-depth: 0
+                
+            - name: Set up NodeJS
+              uses: actions/setup-node@v3
+              with: 
+                node-version: '14'
+
+            - name: Install NodeJS dependencies
+              run: npm install
+
+            - name: Build Docker Image
+              run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
+
+            - name: Scan Docker Image with Trivy
+              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+
+            - name: Log in to DockerHub
+              run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            
+            - name: Push Docker image to DockerHub
+              run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} 
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        steps: 
+            - name: Checkout code
+              uses: actions/checkout@v3
+              with:
+                token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+                fetch-depth: 0  # get all history of all branches and tags
+
+            - name: Install kubectl
+              run: |
+                  curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.7/2024-12-12/bin/linux/amd64/kubectl
+                  chmod +x ./kubectl
+                  sudo mv ./kubectl /usr/local/bin/kubectl
+
+            - name: Install ArgoCD CLI
+              run: | 
+                  curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+                  chmod +x argocd
+                  sudo mv argocd /usr/local/bin/argocd
+
+            - name: Login to ArgoCD
+              run: |
+                argocd login ${{ secrets.ARGOCD_SERVER }} \
+                    --username ${{ secrets.ARGOCD_USERNAME }} \
+                    --password ${{ secrets.ARGOCD_PASSWORD }} \
+                    --insecure
+
+            - name: Update deployment.yaml with newly built image
+              run: |
+                git config user.name "${{ secrets.GIT_USERNAME }}"
+                git config user.email "${{ secrets.GIT_EMAIL }}"
+                git fetch origin
+                git checkout main
+                git pull origin main
+                pwd
+                cat manifest/deployment.yaml
+                pwd
+                sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yaml
+                cat manifest/deployment.yaml
+
+            - name: Commit and Push Updated deployment.yaml
+              run: |
+                git config user.name "${{ secrets.GIT_USERNAME }}"
+                git config user.email "${{ secrets.GIT_EMAIL }}"
+                git remote set-url origin https://$GIT_USERNAME:$PERSONAL_ACCESS_TOKEN@github.com/${{ github.repository }}.git
+                git fetch origin
+                git checkout main
+                git pull origin main
+                git add .
+                git commit -m "Update image to my-app:${{ github.sha }}"
+                git push origin main
+
+            - name: Refresh ArgoCD App and Sync
+              run: argocd app sync my-app
