@@ -1,39 +1,42 @@
 name: GitOps Pipeline with ArgoCD
 
-on: 
-    push:
-        branches: 
-            - main
-env: 
-    PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
-    DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-    DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-   
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        steps: 
-            - name: Checkout code
-              uses: actions/checkout@v3
-              with:
-                token: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
-                fetch-depth: 0
-                
-            - name: Set up NodeJS
-              uses: actions/setup-node@v3
-              with: 
-                node-version: '24'
+  build:
+    runs-on: ubuntu-latest
 
-            - name: Install NodeJS dependencies
-              run: npm install
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
+          fetch-depth: 0
 
-            - name: Build Docker Image
-              run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
+      - name: Set up NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
 
-            - name: Scan Docker Image with Trivy
-              run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-            - name: Log in to DockerHub
-              run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-            
-            - name: Push Docker image to DockerHub
-              run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} 
+      - name: Install NodeJS dependencies
+        run: npm install
+
+      - name: Build Docker Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
+
+      - name: Scan Docker Image with Trivy
+        run: docker run --rm aquasec/trivy:latest image ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+
+      - name: Log in to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Push Docker image to DockerHub
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
