@@ -6,7 +6,7 @@ on:
             - main
         
 env: 
-    PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN1 }}
      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
      jobs:
