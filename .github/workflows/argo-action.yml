@@ -16,7 +16,7 @@ env:
             - name: Checkout code
               uses: actions/checkout@v3
               with:
-                token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+                token: ${{ secrets.PERSONAL_ACCESS_TOKEN1 }}
                 fetch-depth: 0
                 
             - name: Set up NodeJS
