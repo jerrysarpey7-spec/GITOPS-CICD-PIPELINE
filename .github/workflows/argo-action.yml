@@ -38,17 +38,3 @@ jobs:
 
       - name: Build Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
-
-      - name: Push Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-
-      - name: Update Kubernetes Manifest
-        run: |
-          git config --global user.name "GitHub Actions Bot"
-          git config --global user.email "actions@github.com"
-          
-          # Update the image tag in your deployment manifest file
-          sed -i 's|image: .*/my-app:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}|g' manifest/deployment.yaml
-          
-          git commit -am "Update image tag to ${{ github.sha }}"
-          git push
