@@ -1,42 +1,33 @@
 name: GitOps Pipeline with ArgoCD
 
 on: 
-  push:
-    branches: 
-      - main
-      
+    push:
+        branches: 
+            - main
+        paths-ignore:
+            - 'manifest/**' # ignore changes to manifest files to prevent loop
 env: 
-  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN1 }}
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-
+    PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
+    DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+   
+    
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps: 
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          fetch-depth: 0
-          
-      - name: Set up NodeJS
-        uses: actions/setup-node@v3
-        with: 
-          node-version: '24'
+    build:
+        runs-on: ubuntu-latest
+        steps: 
+            - name: Checkout code
+              uses: actions/checkout@v3
+              with:
+                token: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
+                fetch-depth: 0
+                
+            - name: Set up NodeJS
+              uses: actions/setup-node@v3
+              with: 
+                node-version: '18'
 
-      - name: Install NodeJS dependencies
-        run: npm install
+            - name: Install NodeJS dependencies
+              run: npm install
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
-
-      - name: Push Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-
-           
+            - name: Build Docker Image
+              run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
