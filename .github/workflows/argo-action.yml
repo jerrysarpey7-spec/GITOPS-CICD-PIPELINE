@@ -48,7 +48,7 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v3
               with:
-                token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+                token: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
                 fetch-depth: 0  # get all history of all branches and tags
 
             - name: Install kubectl
