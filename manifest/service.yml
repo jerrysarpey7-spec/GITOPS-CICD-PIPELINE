@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: my-service
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
     - port: 80       # The port the service is exposed on
       targetPort: 3000  # The port your application is listening on
