@@ -72,4 +72,6 @@ jobs:
                     --username ${{ secrets.ARGOCD_USERNAME }} \
                     --password ${{ secrets.ARGOCD_PASSWORD }} \
                     --insecure
+
+                    
             
