@@ -92,12 +92,13 @@ jobs:
               run: |
                 git config user.name "${{ secrets.GIT_USERNAME }}"
                 git config user.email "${{ secrets.GIT_EMAIL }}"
-                git remote set-url origin https://${{ secrets.GIT_USERNAME }}:${{ secrets.PERSONAL_ACCESS_TOKENS }}@github.com/${{ github.repository }}.git
+                git remote set-url origin https://${{ secrets.GIT_USERNAME }}:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git
                 git checkout main
                 git pull origin main
                 git add .
                 git commit -m "Update image to my-app:${{ github.sha }}" || echo "No changes to commit"
                 git push origin main
+
 
               
             - name: Refresh ArgoCD App and Sync
