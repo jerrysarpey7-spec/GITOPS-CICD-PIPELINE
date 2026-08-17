@@ -75,7 +75,7 @@ jobs:
                     --password ${{ secrets.ARGOCD_PASSWORD }} \
                     --insecure
 
-            - name: Update deployment.yaml with newly built image
+            - name: Update deployment.yml with newly built image
               run: |
                 git config user.name "${{ secrets.GIT_USERNAME }}"
                 git config user.email "${{ secrets.GIT_EMAIL }}"
@@ -88,7 +88,7 @@ jobs:
                 sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yaml
                 cat manifest/deployment.yml
 
-            - name: Commit and Push Updated deployment.yaml
+            - name: Commit and Push Updated deployment.yml
               run: |
                 git config user.name "${{ secrets.GIT_USERNAME }}"
                 git config user.email "${{ secrets.GIT_EMAIL }}"
