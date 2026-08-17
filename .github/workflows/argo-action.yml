@@ -85,7 +85,7 @@ jobs:
                 pwd
                 cat manifest/deployment.yml
                 pwd
-                sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yaml
+                sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yml
                 cat manifest/deployment.yml
 
             - name: Commit and Push Updated deployment.yml
