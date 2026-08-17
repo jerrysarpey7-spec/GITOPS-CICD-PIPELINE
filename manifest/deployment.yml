@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: node-app
-        image: jerrishpapa/my-app:bfda83dd9d54d3f98ec7d37967f1a6fa75cb8fe7
+        image: jerrishpapa/my-app:6770e1ea6c368d5007334f93b0efbb2da06c17ca
         ports:
         - containerPort: 3000
 
