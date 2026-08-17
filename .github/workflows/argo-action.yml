@@ -83,10 +83,10 @@ jobs:
                 git checkout main
                 git pull origin main
                 pwd
-                cat manifest/deployment.yaml
+                cat manifest/deployment.yml
                 pwd
                 sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yaml
-                cat manifest/deployment.yaml
+                cat manifest/deployment.yml
 
             - name: Commit and Push Updated deployment.yaml
               run: |
