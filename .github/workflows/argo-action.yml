@@ -103,5 +103,6 @@ jobs:
             - name: Refresh ArgoCD App and Sync
               run: argocd app sync my-app 
 
+
               
             
