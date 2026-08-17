@@ -86,3 +86,4 @@
   run: |
     echo "Syncing my-app with ArgoCD..."
     argocd app sync my-app
+    
