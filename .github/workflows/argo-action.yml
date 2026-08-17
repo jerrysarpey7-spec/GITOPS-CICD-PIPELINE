@@ -5,29 +5,16 @@ on:
     branches:
       - main
 
-env:
-  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  ARGOCD_SERVER : ${{ secrets.ARGOCD_SERVER }}
-  ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }} 
-  ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
-  GIT_USERNAME: ${{ secrets.GIT_USERNAME }}
-  GIT_EMAIL: ${{ secrets.GIT_EMAIL }}
-  
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-          fetch-depth: 0
+        uses: actions/checkout@v4
 
       - name: Set up NodeJS
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
 
@@ -41,65 +28,71 @@ jobs:
         run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
 
       - name: Log in to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-            
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+
       - name: Push Docker image to DockerHub
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} 
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
+
+      - name: Logout from DockerHub
+        if: always()
+        run: docker logout
 
   deploy:
-        needs: build
-        runs-on: ubuntu-latest
-        steps: 
-            - name: Checkout code
-              uses: actions/checkout@v3
-              with:
-                token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-                fetch-depth: 0  # get all history of all branches and tags
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-            - name: Install kubectl
-              run: |
-                  curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.7/2024-12-12/bin/linux/amd64/kubectl
-                  chmod +x ./kubectl
-                  sudo mv ./kubectl /usr/local/bin/kubectl
+      - name: Install kubectl
+        run: |
+          curl -sSL -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.7/2024-12-12/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
 
-            - name: Install ArgoCD CLI
-              run: | 
-                  curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-                  chmod +x argocd
-                  sudo mv argocd /usr/local/bin/argocd
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/argocd
 
-            - name: Login to ArgoCD
-              run: |
-                argocd login ${{ secrets.ARGOCD_SERVER }} \
-                    --username ${{ secrets.ARGOCD_USERNAME }} \
-                    --password ${{ secrets.ARGOCD_PASSWORD }} \
-                    --insecure
+      - name: Login to ArgoCD
+        env:
+          ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+              --username ${{ secrets.ARGOCD_USERNAME }} \
+              --password "$ARGOCD_PASSWORD" \
+              --insecure \
+              --grpc-web
 
-            - name: Update deployment.yml with newly built image
-              run: |
-                git config user.name "${{ secrets.GIT_USERNAME }}"
-                git config user.email "${{ secrets.GIT_EMAIL }}"
-                git fetch origin
-                git checkout main
-                git pull origin main
-                pwd
-                cat manifest/deployment.yml
-                pwd
-                sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yml
-                cat manifest/deployment.yml
-                
-            - name: Commit and Push Updated deployment.yml
-              run: |
-               git config user.name "github-actions[bot]"
-               git config user.email "github-actions[bot]@users.noreply.github.com"
-               git add .
-               git commit -m "Update image to my-app:${{ github.sha }}"
-               git push origin main
-   
-              
-            - name: Refresh ArgoCD App and Sync
-              run: argocd app sync my-app 
+      - name: Update deployment.yml with newly built image
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+          git checkout main
+          git pull origin main
+          
+          echo "Updating deployment.yml..."
+          sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yml
+          cat manifest/deployment.yml
 
+      - name: Commit and Push Updated deployment.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git add manifest/deployment.yml
+          git commit -m "Update image to my-app:${{ github.sha }}" || echo "No changes to commit"
+          git push origin main
+
+      - name: Refresh ArgoCD App and Sync
+        run: argocd app sync my-app --wait
 
               
             
