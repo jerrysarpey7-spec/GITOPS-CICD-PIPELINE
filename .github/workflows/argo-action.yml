@@ -13,7 +13,7 @@ env:
   ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }} 
   ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
   GIT_USERNAME: ${{ secrets.GIT_USERNAME }}
-  secrets.GIT_EMAIL: ${{ secrets.GIT_EMAIL }}
+  GIT_EMAIL: ${{ secrets.GIT_EMAIL }}
   
 jobs:
   build:
