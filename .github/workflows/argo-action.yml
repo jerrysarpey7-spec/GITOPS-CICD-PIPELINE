@@ -59,49 +59,30 @@
           sudo mv ./kubectl /usr/local/bin/kubectl
 
       - name: Install ArgoCD CLI
-        run: |
-          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-          chmod +x argocd
-          sudo mv argocd /usr/local/bin/argocd
-          argocd version
+   run: |
+    curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+    chmod +x argocd
+    sudo mv argocd /usr/local/bin/argocd
 
       - name: Login to ArgoCD
-        env:
-          ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
-        run: |
-          echo "Logging into ArgoCD at: ${{ secrets.ARGOCD_SERVER }}"
-          argocd login ${{ secrets.ARGOCD_SERVER }} \
-              --username ${{ secrets.ARGOCD_USERNAME }} \
-              --password "$ARGOCD_PASSWORD" \
-              --insecure \
-              --grpc-web
-          
-          echo "Verifying login..."
-          argocd app list
+  env:
+    ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+    ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
+    ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+  run: |
+    echo "Logging into ArgoCD at: $ARGOCD_SERVER"
+    argocd login $ARGOCD_SERVER \
+        --username $ARGOCD_USERNAME \
+        --password "$ARGOCD_PASSWORD" \
+        --insecure \
+        --grpc-web
+    
+    echo "Verifying connection..."
+    argocd app list
 
-      - name: Update deployment.yml with newly built image
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin
-          git checkout main
-          git pull origin main
-          
-          echo "Updating deployment.yml..."
-          sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yml
-          cat manifest/deployment.yml
-
-      - name: Commit and Push Updated deployment.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git add manifest/deployment.yml
-          git commit -m "Update image to my-app:${{ github.sha }}" || echo "No changes to commit"
-          git push origin main
-
-      - name: Refresh ArgoCD App and Sync
-        env:
-          ARGOCD_OPTS: --grpc-web
-        run: |
-          echo "Syncing my-app with ArgoCD..."
-          argocd app sync my-app
+       - name: Refresh ArgoCD App and Sync
+  env:
+     ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+  run: |
+    echo "Syncing my-app with ArgoCD..."
+    argocd app sync my-app
