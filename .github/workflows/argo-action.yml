@@ -90,16 +90,16 @@ jobs:
 
             - name: Commit and Push Updated deployment.yml
         
-      run: |
-          git config user.name "${{ secrets.GIT_USERNAME }}"
-          git config user.email "${{ secrets.GIT_EMAIL }}"
-          git remote set-url origin https://$GIT_USERNAME:$PERSONAL_ACCESS_TOKENS@github.com/${{ github.repository }}.git
-          git fetch origin
-          git checkout main
-          git pull origin main
-          git add .
-          git commit -m "Update image to my-app:${{ github.sha }}"
-          git push origin main
+              run: |
+                git config user.name "${{ secrets.GIT_USERNAME }}"
+                git config user.email "${{ secrets.GIT_EMAIL }}"
+                git remote set-url origin https://$GIT_USERNAME:$PERSONAL_ACCESS_TOKENS@github.com/${{ github.repository }}.git
+                git fetch origin
+                git checkout main
+                git pull origin main
+                git add .
+                git commit -m "Update image to my-app:${{ github.sha }}"
+                git push origin main
 
             - name: Refresh ArgoCD App and Sync
               run: argocd app sync my-app 
