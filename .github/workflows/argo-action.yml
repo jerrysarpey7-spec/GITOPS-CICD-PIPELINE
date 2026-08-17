@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
+  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   ARGOCD_SERVER : ${{ secrets.ARGOCD_SERVER }}
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           fetch-depth: 0
 
       - name: Set up NodeJS
@@ -53,7 +53,7 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v3
               with:
-                token: ${{ secrets.PERSONAL_ACCESS_TOKENS }}
+                token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
                 fetch-depth: 0  # get all history of all branches and tags
 
             - name: Install kubectl
@@ -92,7 +92,7 @@ jobs:
               run: |
                 git config user.name "${{ secrets.GIT_USERNAME }}"
                 git config user.email "${{ secrets.GIT_EMAIL }}"
-                git remote set-url origin https://${{ secrets.GIT_USERNAME }}:${{ secrets.PERSONAL_ACCESS_TOKENS }}@github.com/${{ github.repository }}.git
+                git remote set-url origin https://${{ secrets.GIT_USERNAME }}:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/${{ github.repository }}.git
                 git checkout main
                 git pull origin main
                 git add .
