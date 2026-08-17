@@ -1,52 +1,7 @@
-name: GitOps Pipeline with ArgoCD
-
-on:
-  push:
-    branches:
-      - main
-permissions:
-  contents: write
-  packages: read
-  
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up NodeJS
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Install NodeJS dependencies
-        run: npm install
-
-      - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
-
-      - name: Scan Docker Image with Trivy
-        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-
-      - name: Log in to DockerHub
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-
-      - name: Push Docker image to DockerHub
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
-
-      - name: Logout from DockerHub
-        if: always()
-        run: docker logout
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    steps:
+    steps: 
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -63,16 +18,21 @@ jobs:
           curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
           chmod +x argocd
           sudo mv argocd /usr/local/bin/argocd
+          argocd version
 
       - name: Login to ArgoCD
         env:
           ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
         run: |
+          echo "Logging into ArgoCD at: ${{ secrets.ARGOCD_SERVER }}"
           argocd login ${{ secrets.ARGOCD_SERVER }} \
               --username ${{ secrets.ARGOCD_USERNAME }} \
               --password "$ARGOCD_PASSWORD" \
               --insecure \
               --grpc-web
+          
+          echo "Verifying login..."
+          argocd app list
 
       - name: Update deployment.yml with newly built image
         run: |
@@ -95,6 +55,8 @@ jobs:
           git push origin main
 
       - name: Refresh ArgoCD App and Sync
-        run: argocd app sync my-app
-              
-            
+        env:
+          ARGOCD_OPTS: --grpc-web
+        run: |
+          echo "Syncing my-app with ArgoCD..."
+          argocd app sync my-app
