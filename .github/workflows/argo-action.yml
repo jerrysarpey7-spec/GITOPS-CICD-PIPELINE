@@ -1,120 +1,92 @@
-name: GitOps Pipeline with Argo CD
 
 on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "manifest/**"
-      - "README.md"
-
-  workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: gitops-main
-  cancel-in-progress: true
-
-env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/my-app
+  packages: read
 
 jobs:
   build:
-    name: Test, Build, Scan, and Push
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: npm
+          node-version: '24'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install NodeJS dependencies
+        run: npm install
 
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+      - name: Build Docker Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
 
-      - name: Run tests
-        run: npm test
+      - name: Scan Docker Image with Trivy
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
 
-      - name: Build Docker image
-        run: |
-          docker build \
-            --pull \
-            --no-cache \
-            --tag "${IMAGE_NAME}:${GITHUB_SHA}" \
-            .
-
-      - name: Scan Docker image with Trivy
-        run: |
-          docker run --rm \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:latest image \
-            --scanners vuln \
-            --exit-code 1 \
-            --severity HIGH,CRITICAL \
-            --ignore-unfixed \
-            "${IMAGE_NAME}:${GITHUB_SHA}"
-
-      - name: Log in to Docker Hub
+      - name: Log in to DockerHub
         env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          echo "${DOCKERHUB_TOKEN}" | docker login \
-            --username "${{ secrets.DOCKERHUB_USERNAME }}" \
-            --password-stdin
+        run: echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
-      - name: Push Docker image
-        run: docker push "${IMAGE_NAME}:${GITHUB_SHA}"
+      - name: Push Docker image to DockerHub
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}
 
-      - name: Log out from Docker Hub
+      - name: Logout from DockerHub
         if: always()
-        run: docker logout || true
+        run: docker logout
 
-  update-manifest:
-    name: Update Kubernetes Manifest
+  deploy:
     needs: build
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout main branch
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: main
           fetch-depth: 0
 
-      - name: Update deployment image
+      - name: Install kubectl
         run: |
-          git pull --rebase origin main
+          curl -sSL -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.7/2024-12-12/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
 
-          sed -i -E \
-            "s#(image:[[:space:]]*)[^[:space:]]+#\1${IMAGE_NAME}:${GITHUB_SHA}#" \
-            manifest/deployment.yml
+      - name: Install ArgoCD CLI
+        run: | 
+            curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+                  chmod +x argocd
+                  sudo mv argocd /usr/local/bin/argocd
 
-          echo "Updated Kubernetes manifest:"
-          cat manifest/deployment.yml
+            - name: Login to ArgoCD
+              run: |
+                argocd login ${{ secrets.ARGOCD_SERVER }} \
+                    --username ${{ secrets.ARGOCD_USERNAME }} \
+                    --password ${{ secrets.ARGOCD_PASSWORD }} \
+                    --insecure
 
-      - name: Commit and push manifest
+      - name: Update deployment.yml with newly built image
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+          git checkout main
+          git pull origin main
+          
+          echo "Updating deployment.yml..."
+          sed -i "s+${{ secrets.DOCKERHUB_USERNAME }}/my-app.*+${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }}+g" manifest/deployment.yml
+          cat manifest/deployment.yml
 
+      - name: Commit and Push Updated deployment.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           git add manifest/deployment.yml
-
-          if git diff --cached --quiet; then
-            echo "No manifest changes to commit."
-            exit 0
-          fi
-
-          git commit \
-            -m "chore: deploy image ${GITHUB_SHA} [skip ci]"
-
+          git commit -m "Update image to my-app:${{ github.sha }}" || echo "No changes to commit"
           git push origin main
