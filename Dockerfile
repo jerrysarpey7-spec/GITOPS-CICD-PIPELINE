@@ -1,21 +1,25 @@
-# Use an official alpine nodeJS image as the base image
-FROM node:alpine
+FROM node:22-alpine AS dependencies
 
-# Set working directory in the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the container
-COPY package*.json .
+COPY package.json package-lock.json ./
 
-# Install only production nodeJS dependencies in Docker Image
-RUN npm install --only=production
+RUN npm ci --omit=dev \
+    && npm cache clean --force
 
-# Copy the rest of the application code into the container
-COPY app.js .
 
-# Expose the app on a port
+FROM gcr.io/distroless/nodejs22-debian12:nonroot
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+COPY --from=dependencies --chown=nonroot:nonroot /app/node_modules ./node_modules
+COPY --chown=nonroot:nonroot package.json app.js ./
+
 EXPOSE 3000
 
-# Command that runs the app
-CMD ["npm", "start"]
+USER nonroot
 
+CMD ["app.js"]
